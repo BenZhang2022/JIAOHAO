@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>号码状态</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .your-number {
+            font-size: 36px;
+            margin: 20px 0;
+            color: #333;
+        }
+        .next {
+            font-size: 24px;
+            margin: 15px 0;
+            color: #4CAF50;
+        }
+        .status {
+            font-size: 20px;
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .status.waiting {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .status.next {
+            background-color: #fff3e0;
+            color: #ef6c00;
+        }
+        .status.expired {
+            background-color: #ffcdd2;
+            color: #c62828;
+        }
+        .refresh {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>号码状态查询</h1>
+        <div class="your-number" id="yourNumber"></div>
+        <div class="next" id="nextNumber"></div>
+        <div class="status" id="status"></div>
+        <button class="refresh" onclick="refreshStatus()">刷新状态</button>
+    </div>
+
+    <script>
+        // 获取URL中的号码参数
+        const urlParams = new URLSearchParams(window.location.search);
+        const yourNumber = parseInt(urlParams.get('number'));
+
+        // 更新状态的函数
+        function updateStatus() {
+            // 显示自己的号码
+            document.getElementById('yourNumber').textContent = `您的号码是：${yourNumber}号`;
+
+            // 获取当前状态
+            fetch('/currentNumber')
+                .then(res => res.json())
+                .then(data => {
+                    const currentNumber = parseInt(data.currentNumber) || 0;
+                    const queue = data.queue || [];
+                    
+                    // 显示当前服务号码
+                    document.getElementById('nextNumber').textContent = 
+                        currentNumber === 0 ? 
+                        '等待开始服务' : 
+                        `当前服务号码：${currentNumber}号`;
+                    
+                    // 更新状态显示
+                    const statusDiv = document.getElementById('status');
+                    
+                    if (currentNumber === 0) {
+                        if (queue.includes(yourNumber)) {
+                            const position = queue.indexOf(yourNumber);
+                            statusDiv.textContent = position === 0 ? 
+                                '您是第一位' : 
+                                `前面还有 ${position} 人`;
+                            statusDiv.className = 'status waiting';
+                        } else {
+                            statusDiv.textContent = '您的号码不在等待队列中';
+                            statusDiv.className = 'status expired';
+                        }
+                    } else if (yourNumber === currentNumber + 1) {
+                        statusDiv.textContent = '您是下一位，请准备';
+                        statusDiv.className = 'status next';
+                    } else if (queue.includes(yourNumber)) {
+                        const position = queue.indexOf(yourNumber);
+                        statusDiv.textContent = `前面还有 ${position} 人`;
+                        statusDiv.className = 'status waiting';
+                    } else if (yourNumber < currentNumber) {
+                        statusDiv.textContent = '您已过号，请重新取号';
+                        statusDiv.className = 'status expired';
+                    } else {
+                        statusDiv.textContent = '您的号码不在等待队列中';
+                        statusDiv.className = 'status expired';
+                    }
+                })
+                .catch(error => {
+                    console.error('获取状态失败：', error);
+                    document.getElementById('nextNumber').textContent = '等待开始服务';
+                    document.getElementById('status').textContent = '';
+                });
+        }
+
+        // 刷新按钮点击事件
+        function refreshStatus() {
+            updateStatus();
+        }
+
+        // 页面加载时更新状态
+        updateStatus();
+
+        // 每30秒自动更新一次
+        setInterval(updateStatus, 30000);
+    </script>
+</body>
+</html> 

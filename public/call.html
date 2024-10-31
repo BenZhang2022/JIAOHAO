@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>服务窗口叫号</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status-panel {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .window-setup {
+            margin: 20px 0;
+            padding: 15px;
+            border-top: 1px solid #ddd;
+        }
+        .current {
+            font-size: 28px;
+            margin: 10px 0;
+            color: #333;
+        }
+        .queue {
+            font-size: 24px;
+            margin: 10px 0;
+            color: #666;
+        }
+        .next {
+            font-size: 24px;
+            margin: 10px 0;
+            color: #4CAF50;
+        }
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        select, input {
+            padding: 8px;
+            font-size: 16px;
+            margin: 0 10px;
+        }
+        .window-number {
+            font-size: 24px;
+            color: #333;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>服务窗口叫号系统</h1>
+        
+        <!-- 窗口设置 -->
+        <div class="window-setup">
+            <div class="window-number">
+                当前窗口：<select id="windowSelect" onchange="updateWindow()">
+                    <option value="1">1号窗口</option>
+                    <option value="2">2号窗口</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 状态显示 -->
+        <div class="status-panel">
+            <div class="current" id="currentNumber">当前服务号码：无</div>
+            <div class="queue" id="queueStatus">等待人数：0</div>
+            <div class="next" id="nextNumber">下一个服务号码：无</div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div>
+            <button id="callButton" onclick="callNext()">叫号</button>
+            <button onclick="refreshStatus()">刷新状态</button>
+        </div>
+    </div>
+
+    <script>
+        let currentWindow = 1;
+
+        // 更新窗口号
+        function updateWindow() {
+            currentWindow = document.getElementById('windowSelect').value;
+            console.log('切换到窗口:', currentWindow);
+            refreshStatus();
+        }
+
+        // 更新状态
+        function updateStatus() {
+            fetch('/currentNumber')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('currentNumber').textContent = 
+                        `当前服务号码：${data.number}号`;
+                });
+        }
+
+        // 获取队列状态
+        function getQueueStatus() {
+            fetch('/queueStatus')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('queueStatus').textContent = 
+                        `等待人数：${data.length}`;
+                    // 显示下一个要服务的号码
+                    document.getElementById('nextNumber').textContent = 
+                        `下一个服务号码：${data.nextNumber || '无'}`;
+                    // 如果没有等待的人，禁用叫号按钮
+                    document.getElementById('callButton').disabled = data.length === 0;
+                })
+                .catch(error => {
+                    console.error('获取队列状态失败：', error);
+                });
+        }
+
+        // 叫号
+        function callNext() {
+            fetch(`/callNumber?window=${currentWindow}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.number === '无') {
+                        alert('当前没有等待的号码');
+                    } else {
+                        document.getElementById('currentNumber').textContent = 
+                            `当前服务号码：${data.number}号`;
+                        // 更新后立即获取新的队列状态
+                        getQueueStatus();
+                    }
+                })
+                .catch(error => {
+                    console.error('叫号失败：', error);
+                    alert('叫号失败，请重试');
+                });
+        }
+
+        // 刷新状态
+        function refreshStatus() {
+            updateStatus();
+            getQueueStatus();
+        }
+
+        // 页面加载时更新状态
+        refreshStatus();
+
+        // 每10秒自动更新一次
+        setInterval(refreshStatus, 10000);
+    </script>
+</body>
+</html> 
